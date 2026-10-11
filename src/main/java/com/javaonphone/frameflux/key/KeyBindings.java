@@ -6,6 +6,7 @@ import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 import net.fabricmc.fabric.api.client.keybinding.v1.KeyBindingHelper;
 import net.minecraft.client.option.KeyBinding;
 import net.minecraft.client.util.InputUtil;
+import net.minecraft.util.Identifier;
 import org.lwjgl.glfw.GLFW;
 
 public class KeyBindings {
@@ -13,12 +14,21 @@ public class KeyBindings {
     public static KeyBinding toggleFrameGen;
 
     public static void register() {
+        // В 1.21.11 категория — это объект KeyBinding.Category, а не строка
+        KeyBinding.Category category = KeyBinding.Category.create(
+                Identifier.of("frameflux", "main"));
+
         openMenu = KeyBindingHelper.registerKeyBinding(new KeyBinding(
-                "key.frameflux.menu", InputUtil.Type.KEYSYM,
-                GLFW.GLFW_KEY_F, "category.frameflux"));
+                "key.frameflux.menu",
+                InputUtil.Type.KEYSYM,
+                GLFW.GLFW_KEY_F,
+                category));
+
         toggleFrameGen = KeyBindingHelper.registerKeyBinding(new KeyBinding(
-                "key.frameflux.toggle", InputUtil.Type.KEYSYM,
-                GLFW.GLFW_KEY_G, "category.frameflux"));
+                "key.frameflux.toggle",
+                InputUtil.Type.KEYSYM,
+                GLFW.GLFW_KEY_G,
+                category));
 
         ClientTickEvents.END_CLIENT_TICK.register(client -> {
             while (openMenu.wasPressed()) {
