@@ -9,7 +9,7 @@ import java.io.*;
 import java.nio.file.*;
 
 public class FrameFluxConfig {
-    public boolean frameGenEnabled = true;
+    public boolean frameGenEnabled = false; // ОТКЛЮЧЕНО до готовности репроекции
     public int multiplier = 2;
     public boolean hudEnabled = true;
     public boolean autoApplySodium = false;
@@ -38,4 +38,4 @@ public class FrameFluxConfig {
             FrameFluxClient.LOGGER.error("[FrameFlux] Config save failed", e);
         }
     }
-                  }
+}
