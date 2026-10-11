@@ -18,7 +18,7 @@ public class FrameFluxClient implements ClientModInitializer {
     private FrameBufferManager bufferManager;
     private FrameInterpolator interpolator;
     private FrameFluxConfig config;
-    private boolean frameGenEnabled = false; // ОТКЛЮЧЕНО до готовности репроекции
+    private boolean frameGenEnabled = false;
     private int frameCounter = 0;
     private int multiplier = 2;
 
@@ -29,20 +29,26 @@ public class FrameFluxClient implements ClientModInitializer {
         bufferManager = new FrameBufferManager();
         interpolator = new FrameInterpolator();
 
-        // Читаем состояние из конфига
         frameGenEnabled = config.frameGenEnabled;
         multiplier = config.multiplier;
 
         KeyBindings.register();
         HudRenderCallback.EVENT.register(new HudIndicator());
 
-        LOGGER.info("[FrameFlux] Initialized. FrameGen: {}", frameGenEnabled);
+        // Инициализируем буферы под текущее разрешение окна
+        var window = net.minecraft.client.MinecraftClient.getInstance().getWindow();
+        bufferManager.initialize(window.getFramebufferWidth(), window.getFramebufferHeight());
+
+        LOGGER.info("[FrameFlux] Initialized. FrameGen: {}, Depth: {}",
+                frameGenEnabled, bufferManager.isDepthSupported());
     }
 
     public static FrameFluxClient getInstance() { return INSTANCE; }
 
     public boolean shouldSkipRender() {
         if (!frameGenEnabled) return false;
+        // На Android без depth — не пропускаем кадры, иначе будет мигание
+        if (!bufferManager.isDepthSupported()) return false;
         frameCounter++;
         return frameCounter % multiplier != 0;
     }
@@ -77,4 +83,4 @@ public class FrameFluxClient implements ClientModInitializer {
         config.multiplier = m;
         config.save();
     }
-            }
+}
