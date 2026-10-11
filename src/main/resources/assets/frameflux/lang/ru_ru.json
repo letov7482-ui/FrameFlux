@@ -1,5 +1,5 @@
 {
-  "key.frameflux.menu": "Открыть меню FrameFlux",
-  "key.frameflux.toggle": "Вкл/выкл FrameGen",
-  "category.frameflux": "FrameFlux"
+  "key.frameflux.menu": "Open FrameFlux Menu",
+  "key.frameflux.toggle": "Toggle FrameGen",
+  "key.categories.frameflux.main": "FrameFlux"
 }
