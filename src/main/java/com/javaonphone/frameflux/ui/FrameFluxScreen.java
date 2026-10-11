@@ -7,10 +7,10 @@ import net.minecraft.client.gui.screen.Screen;
 import net.minecraft.client.gui.widget.ButtonWidget;
 import net.minecraft.text.Text;
 
+import java.util.ArrayList;
 import java.util.List;
 
 public class FrameFluxScreen extends Screen {
-    // СТАТИЧЕСКИЙ КЭШ — сохраняется между пересозданиями экрана
     private static List<ModEntry> cachedMods = null;
     private static String cachedError = null;
     private static boolean cachedLoading = false;
@@ -19,6 +19,9 @@ public class FrameFluxScreen extends Screen {
     private int currentTab;
 
     private ButtonWidget loadButton;
+
+    // Виджеты для контента (создаются в init для активной вкладки)
+    private final List<ButtonWidget> contentWidgets = new ArrayList<>();
 
     private static final int SIDEBAR_WIDTH = 110;
     private static final int TAB_HEIGHT = 24;
@@ -36,29 +39,32 @@ public class FrameFluxScreen extends Screen {
 
     @Override
     protected void init() {
+        contentWidgets.clear();
+
         int tabX = 10;
         int tabY = TAB_START_Y;
 
         addDrawableChild(ButtonWidget.builder(Text.literal("Оптимизация"), b -> {
             currentTab = 0;
-            updateVisibility();
+            rebuildContent();
         }).dimensions(tabX, tabY, SIDEBAR_WIDTH - 20, TAB_HEIGHT).build());
 
         addDrawableChild(ButtonWidget.builder(Text.literal("Помощь"), b -> {
             currentTab = 1;
-            updateVisibility();
+            rebuildContent();
         }).dimensions(tabX, tabY + TAB_HEIGHT + 4, SIDEBAR_WIDTH - 20, TAB_HEIGHT).build());
 
         addDrawableChild(ButtonWidget.builder(Text.literal("О моде"), b -> {
             currentTab = 2;
-            updateVisibility();
+            rebuildContent();
         }).dimensions(tabX, tabY + (TAB_HEIGHT + 4) * 2, SIDEBAR_WIDTH - 20, TAB_HEIGHT).build());
 
+        // Кнопка загрузки
         loadButton = ButtonWidget.builder(Text.literal("Загрузить моды"), b -> {
             cachedLoading = true;
             cachedError = null;
             cachedMods = null;
-            updateVisibility();
+            rebuildContent();
             new Thread(() -> {
                 List<ModEntry> result = null;
                 String error = null;
@@ -70,7 +76,6 @@ public class FrameFluxScreen extends Screen {
                 cachedMods = result;
                 cachedError = error;
                 cachedLoading = false;
-                // Пересоздаём экран в главном потоке
                 if (client != null) {
                     client.execute(() -> client.setScreen(new FrameFluxScreen(parent, 0)));
                 }
@@ -78,13 +83,69 @@ public class FrameFluxScreen extends Screen {
         }).dimensions(SIDEBAR_WIDTH + 10, 70, 160, 20).build();
 
         addDrawableChild(loadButton);
-        updateVisibility();
+
+        rebuildContent();
     }
 
-    private void updateVisibility() {
-        if (loadButton != null) {
-            loadButton.visible = (currentTab == 0 && !cachedLoading);
+    private void rebuildContent() {
+        // Удаляем старые контентные виджеты
+        for (ButtonWidget w : contentWidgets) {
+            remove(w);
         }
+        contentWidgets.clear();
+
+        // Кнопка загрузки — только на вкладке "Оптимизация"
+        if (loadButton != null) {
+            loadButton.visible = (currentTab == 0 && !cachedLoading && cachedMods == null && cachedError == null);
+        }
+
+        int contentX = SIDEBAR_WIDTH + 10;
+        int y = 100;
+
+        switch (currentTab) {
+            case 0 -> {
+                if (cachedLoading) {
+                    addContentLabel("Ищем моды...", contentX, y, 0xFFFFAA);
+                } else if (cachedError != null) {
+                    addContentLabel("Ошибка: " + cachedError, contentX, y, 0xFF5555);
+                } else if (cachedMods != null && !cachedMods.isEmpty()) {
+                    addContentLabel("Найдено: " + cachedMods.size() + " модов", contentX, y, 0x55FF55);
+                    y += 20;
+                    int limit = Math.min(cachedMods.size(), 15);
+                    for (int i = 0; i < limit; i++) {
+                        ModEntry mod = cachedMods.get(i);
+                        ButtonWidget entry = ButtonWidget.builder(
+                                Text.literal(mod.title()),
+                                b -> {} // заглушка, потом добавим скачивание
+                        ).dimensions(contentX, y, 200, 16).build();
+                        addDrawableChild(entry);
+                        contentWidgets.add(entry);
+                        y += 18;
+                    }
+                } else if (cachedMods != null) {
+                    addContentLabel("Моды не найдены", contentX, y, 0xAAAAAA);
+                }
+            }
+            case 1 -> {
+                addContentLabel("F - открыть меню", contentX, y, 0xCCCCCC);
+                addContentLabel("G - вкл/выкл FrameGen", contentX, y + 16, 0xCCCCCC);
+                addContentLabel("FrameGen удваивает FPS", contentX, y + 40, 0xCCCCCC);
+            }
+            case 2 -> {
+                addContentLabel("FrameFlux v1.0.0", contentX, y, 0xCCCCCC);
+                addContentLabel("Автор: JavaOnPhone team", contentX, y + 16, 0xCCCCCC);
+                addContentLabel("Minecraft 1.21.11 / Fabric", contentX, y + 40, 0xCCCCCC);
+            }
+        }
+    }
+
+    // Вместо drawText — создаём "кнопку-метку" (некликабельную)
+    private void addContentLabel(String text, int x, int y, int color) {
+        ButtonWidget label = ButtonWidget.builder(Text.literal(text), b -> {})
+                .dimensions(x, y, 200, 14).build();
+        label.active = false; // визуально отключена, но текст видно
+        addDrawableChild(label);
+        contentWidgets.add(label);
     }
 
     @Override
@@ -96,73 +157,6 @@ public class FrameFluxScreen extends Screen {
 
         int activeY = TAB_START_Y + currentTab * (TAB_HEIGHT + 4);
         ctx.fill(5, activeY - 2, SIDEBAR_WIDTH - 5, activeY + TAB_HEIGHT + 2, 0x55FFAA00);
-
-        switch (currentTab) {
-            case 0 -> renderOptimizeTab(ctx);
-            case 1 -> renderHelpTab(ctx);
-            case 2 -> renderAboutTab(ctx);
-        }
-    }
-
-    private void renderOptimizeTab(DrawContext ctx) {
-        int contentX = SIDEBAR_WIDTH + 10;
-        int y = 100;
-
-        if (cachedLoading) {
-            ctx.drawText(textRenderer, "Ищем моды...", contentX, y, 0xFFFFAA, false);
-            return;
-        }
-
-        if (cachedError != null) {
-            ctx.drawText(textRenderer, "Ошибка: " + cachedError, contentX, y, 0xFF5555, false);
-            return;
-        }
-
-        if (cachedMods != null && !cachedMods.isEmpty()) {
-            ctx.drawText(textRenderer, "Найдено: " + cachedMods.size() + " модов",
-                    contentX, y, 0x55FF55, false);
-            y += 18;
-
-            // Рисуем простым drawText (без тени — на GL4ES тень иногда ломает вывод)
-            for (ModEntry mod : cachedMods) {
-                if (y > height - 20) break;
-                ctx.drawText(textRenderer, "> " + mod.title(), contentX, y, 0xFFFFFF, false);
-                y += 12;
-            }
-        } else if (cachedMods != null) {
-            ctx.drawText(textRenderer, "Моды не найдены", contentX, y, 0xAAAAAA, false);
-        }
-    }
-
-    private void renderHelpTab(DrawContext ctx) {
-        int contentX = SIDEBAR_WIDTH + 10;
-        int y = 70;
-        String[] lines = {
-                "F - открыть меню",
-                "G - вкл/выкл FrameGen",
-                "",
-                "FrameGen удваивает FPS"
-        };
-        for (String line : lines) {
-            ctx.drawText(textRenderer, line, contentX, y, 0xCCCCCC, false);
-            y += 14;
-        }
-    }
-
-    private void renderAboutTab(DrawContext ctx) {
-        int contentX = SIDEBAR_WIDTH + 10;
-        int y = 70;
-        String[] lines = {
-                "FrameFlux v1.0.0",
-                "Автор: JavaOnPhone team",
-                "",
-                "Sodium / Iris",
-                "Minecraft 1.21.11 / Fabric"
-        };
-        for (String line : lines) {
-            ctx.drawText(textRenderer, line, contentX, y, 0xCCCCCC, false);
-            y += 14;
-        }
     }
 
     @Override
