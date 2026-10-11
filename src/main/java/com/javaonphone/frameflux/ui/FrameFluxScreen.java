@@ -11,12 +11,22 @@ import java.util.List;
 
 public class FrameFluxScreen extends Screen {
     private final Screen parent;
-    private int currentTab = 0;
+    private int currentTab = 0; // 0 = Оптимизация, 1 = Помощь, 2 = О моде
 
     private List<ModEntry> mods = null;
     private boolean loading = false;
     private String errorMessage = null;
+
+    // Кнопки вкладок (создаются один раз в init)
+    private ButtonWidget tabOptimize;
+    private ButtonWidget tabHelp;
+    private ButtonWidget tabAbout;
     private ButtonWidget loadButton;
+
+    // Размеры боковой панели
+    private static final int SIDEBAR_WIDTH = 110;
+    private static final int TAB_HEIGHT = 24;
+    private static final int TAB_START_Y = 40;
 
     public FrameFluxScreen(Screen parent) {
         super(Text.literal("FrameFlux"));
@@ -25,26 +35,30 @@ public class FrameFluxScreen extends Screen {
 
     @Override
     protected void init() {
-        int tabY = 30;
-        int tabWidth = 100;
-        int totalTabWidth = tabWidth * 3;
-        int tabStartX = (width - totalTabWidth) / 2;
+        // === Боковые вкладки ===
+        int tabX = 10;
+        int tabY = TAB_START_Y;
 
-        addDrawableChild(ButtonWidget.builder(Text.literal("Оптимизация"), b -> {
+        tabOptimize = ButtonWidget.builder(Text.literal("Оптимизация"), b -> {
             currentTab = 0;
-            updateLoadButton();
-        }).dimensions(tabStartX, tabY, tabWidth, 20).build());
+            updateVisibility();
+        }).dimensions(tabX, tabY, SIDEBAR_WIDTH - 20, TAB_HEIGHT).build();
 
-        addDrawableChild(ButtonWidget.builder(Text.literal("Помощь"), b -> {
+        tabHelp = ButtonWidget.builder(Text.literal("Помощь"), b -> {
             currentTab = 1;
-            updateLoadButton();
-        }).dimensions(tabStartX + tabWidth, tabY, tabWidth, 20).build());
+            updateVisibility();
+        }).dimensions(tabX, tabY + TAB_HEIGHT + 4, SIDEBAR_WIDTH - 20, TAB_HEIGHT).build();
 
-        addDrawableChild(ButtonWidget.builder(Text.literal("О моде"), b -> {
+        tabAbout = ButtonWidget.builder(Text.literal("О моде"), b -> {
             currentTab = 2;
-            updateLoadButton();
-        }).dimensions(tabStartX + tabWidth * 2, tabY, tabWidth, 20).build());
+            updateVisibility();
+        }).dimensions(tabX, tabY + (TAB_HEIGHT + 4) * 2, SIDEBAR_WIDTH - 20, TAB_HEIGHT).build();
 
+        addDrawableChild(tabOptimize);
+        addDrawableChild(tabHelp);
+        addDrawableChild(tabAbout);
+
+        // === Кнопка загрузки модов (создаётся один раз) ===
         loadButton = ButtonWidget.builder(Text.literal("Загрузить моды"), b -> {
             loading = true;
             errorMessage = null;
@@ -55,7 +69,7 @@ public class FrameFluxScreen extends Screen {
                     List<ModEntry> result = ModrinthClient.searchOptimizationMods("1.21.11");
                     mods = result;
                 } catch (Exception e) {
-                    errorMessage = e.getMessage();
+                    errorMessage = e.getMessage() != null ? e.getMessage() : "Неизвестная ошибка";
                 } finally {
                     loading = false;
                     if (client != null) {
@@ -63,48 +77,66 @@ public class FrameFluxScreen extends Screen {
                     }
                 }
             }).start();
-        }).dimensions(width / 2 - 100, 70, 200, 20).build();
+        }).dimensions(SIDEBAR_WIDTH + 10, 70, 160, 20).build();
 
         addDrawableChild(loadButton);
-        updateLoadButton();
+
+        // Управляем видимостью в зависимости от вкладки
+        updateVisibility();
     }
 
-    private void updateLoadButton() {
+    private void updateVisibility() {
         if (loadButton != null) {
             loadButton.visible = (currentTab == 0 && mods == null && !loading && errorMessage == null);
         }
+        // Вкладки всегда видимы
+        if (tabOptimize != null) tabOptimize.visible = true;
+        if (tabHelp != null) tabHelp.visible = true;
+        if (tabAbout != null) tabAbout.visible = true;
     }
 
     @Override
     public void render(DrawContext ctx, int mouseX, int mouseY, float delta) {
-        super.render(ctx, mouseX, mouseY, delta);
-        ctx.drawCenteredTextWithShadow(textRenderer, title, width / 2, 10, 0xFFFFFF);
+        // Фон
+        ctx.fill(0, 0, width, height, 0xCC000000);
 
-        int tabY = 30, tabWidth = 100;
-        int tabStartX = (width - tabWidth * 3) / 2;
-        ctx.fill(tabStartX + currentTab * tabWidth, tabY + 20,
-                tabStartX + (currentTab + 1) * tabWidth, tabY + 22, 0xFFFFAA00);
+        // Заголовок
+        ctx.drawCenteredTextWithShadow(textRenderer, title, width / 2, 15, 0xFFFFFF);
 
+        // === Боковая панель (фон) ===
+        ctx.fill(0, 30, SIDEBAR_WIDTH, height, 0xAA1A1A1A);
+
+        // Подсветка активной вкладки
+        int activeY = TAB_START_Y + currentTab * (TAB_HEIGHT + 4);
+        ctx.fill(5, activeY - 2, SIDEBAR_WIDTH - 5, activeY + TAB_HEIGHT + 2, 0x55FFAA00);
+
+        // === Контент активной вкладки ===
         switch (currentTab) {
             case 0 -> renderOptimizeTab(ctx);
             case 1 -> renderHelpTab(ctx);
             case 2 -> renderAboutTab(ctx);
         }
+
+        // Рисуем виджеты поверх
+        super.render(ctx, mouseX, mouseY, delta);
     }
 
     private void renderOptimizeTab(DrawContext ctx) {
+        int contentX = SIDEBAR_WIDTH + 10;
         int y = 100;
+
         if (loading) {
-            ctx.drawCenteredTextWithShadow(textRenderer, "Ищем моды...", width / 2, y, 0xFFFFAA);
+            ctx.drawTextWithShadow(textRenderer, "Ищем моды...", contentX, y, 0xFFFFAA);
         } else if (errorMessage != null) {
-            ctx.drawCenteredTextWithShadow(textRenderer, "Ошибка: " + errorMessage, width / 2, y, 0xFF5555);
+            ctx.drawTextWithShadow(textRenderer, "Ошибка: " + errorMessage, contentX, y, 0xFF5555);
+            ctx.drawTextWithShadow(textRenderer, "Проверь интернет", contentX, y + 14, 0xAAAAAA);
         } else if (mods != null) {
             if (mods.isEmpty()) {
-                ctx.drawCenteredTextWithShadow(textRenderer, "Моды не найдены", width / 2, y, 0xAAAAAA);
+                ctx.drawTextWithShadow(textRenderer, "Моды не найдены", contentX, y, 0xAAAAAA);
             } else {
                 for (ModEntry mod : mods) {
-                    if (y > height - 50) break;
-                    ctx.drawTextWithShadow(textRenderer, mod.title(), 20, y, 0xFFFFFF);
+                    if (y > height - 40) break;
+                    ctx.drawTextWithShadow(textRenderer, mod.title(), contentX, y, 0xFFFFFF);
                     y += 14;
                 }
             }
@@ -112,19 +144,33 @@ public class FrameFluxScreen extends Screen {
     }
 
     private void renderHelpTab(DrawContext ctx) {
+        int contentX = SIDEBAR_WIDTH + 10;
         int y = 70;
-        String[] lines = {"F — открыть меню", "G — вкл/выкл FrameGen", "", "FrameGen удваивает FPS"};
+        String[] lines = {
+                "F — открыть меню",
+                "G — вкл/выкл FrameGen",
+                "",
+                "FrameGen удваивает FPS,",
+                "вставляя кадры между реальными."
+        };
         for (String line : lines) {
-            ctx.drawCenteredTextWithShadow(textRenderer, line, width / 2, y, 0xCCCCCC);
+            ctx.drawTextWithShadow(textRenderer, line, contentX, y, 0xCCCCCC);
             y += 14;
         }
     }
 
     private void renderAboutTab(DrawContext ctx) {
+        int contentX = SIDEBAR_WIDTH + 10;
         int y = 70;
-        String[] lines = {"FrameFlux v1.0.0", "Автор: JavaOnPhone team", "", "Sodium · Iris", "Minecraft 1.21.11 · Fabric"};
+        String[] lines = {
+                "FrameFlux v1.0.0",
+                "Автор: JavaOnPhone team",
+                "",
+                "Sodium · Iris",
+                "Minecraft 1.21.11 · Fabric"
+        };
         for (String line : lines) {
-            ctx.drawCenteredTextWithShadow(textRenderer, line, width / 2, y, 0xCCCCCC);
+            ctx.drawTextWithShadow(textRenderer, line, contentX, y, 0xCCCCCC);
             y += 14;
         }
     }
