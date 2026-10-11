@@ -18,7 +18,7 @@ public class GameRendererMixin {
         if (client == null) return;
         if (!client.shouldSkipRender()) return;
 
-        client.renderInterpolatedFrame(tickCounter.getLastFrameDuration());
+        client.renderInterpolatedFrame(tickCounter.getTickDelta(false));
         ci.cancel();
     }
 
