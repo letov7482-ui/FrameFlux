@@ -35,35 +35,43 @@ jobs:
         run: |
           gradle build --no-daemon --stacktrace 2>&1 | tee build.log
 
-      # === ДИАГНОСТИКА: где реально лежит jar ===
-      - name: Find jar everywhere
+      # === ДИАГНОСТИКА ===
+      - name: Check jar exists
         if: always()
         run: |
-          echo "=== ВСЁ, ЧТО ПОХОЖЕ НА JAR ==="
-          find . -name "*.jar" \
-            -not -path "./gradle-9.2.1/*" \
-            -not -path "./.gradle/*" \
-            -not -path "./gradle/*" \
-            -not -path "*/.git/*" || echo "НИЧЕГО НЕ НАЙДЕНО"
-          echo ""
-          echo "=== ВСЯ СТРУКТУРА build/ ==="
-          find build -type f 2>/dev/null | head -50 || echo "build/ ПУСТОЙ"
-          echo ""
-          echo "=== ЕСТЬ ЛИ ПАПКА build/ ==="
-          ls -la build/ 2>/dev/null || echo "build/ НЕ СУЩЕСТВУЕТ"
-          echo ""
-          echo "=== ЕСТЬ ЛИ ПАПКА build/libs/ ==="
+          echo "=== Содержимое build/libs/ ==="
           ls -la build/libs/ 2>/dev/null || echo "build/libs/ НЕ СУЩЕСТВУЕТ"
           echo ""
-          echo "=== ЕСТЬ ЛИ ПАПКА build/devlibs/ ==="
-          ls -la build/devlibs/ 2>/dev/null || echo "build/devlibs/ НЕ СУЩЕСТВУЕТ"
+          echo "=== Все jar в build/ ==="
+          find build -name "*.jar" 2>/dev/null || echo "jar НЕ НАЙДЕН"
           echo ""
-          echo "=== ПОСЛЕДНИЕ 40 СТРОК build.log ==="
-          tail -n 40 build.log 2>/dev/null || echo "build.log НЕ СОЗДАН"
+          echo "=== Задача remapJar в логе ==="
+          grep -n "remapJar" build.log 2>/dev/null || echo "remapJar НЕ ВЫПОЛНЯЛАСЬ"
           echo ""
-          echo "=== ЕСТЬ ЛИ TASK :remapJar В ЛОГЕ ==="
-          grep -n "remapJar" build.log 2>/dev/null || echo "TASK :remapJar НЕ НАЙДЕН В ЛОГЕ"
+          echo "=== Последние 30 строк build.log ==="
+          tail -n 30 build.log 2>/dev/null || echo "build.log НЕ СОЗДАН"
 
+      # === ЗАГРУЗКА ТОЛЬКО JAR ===
+      - name: Upload jar
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: FrameFlux
+          path: build/libs/*.jar
+          if-no-files-found: warn
+          retention-days: 30
+
+      # === ЗАГРУЗКА ЛОГА ===
+      - name: Upload build log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-log
+          path: build.log
+          if-no-files-found: warn
+          retention-days: 7
+
+      # === КОРОТКАЯ ВЫЖИМКА ОШИБОК ===
       - name: Summarize errors
         if: steps.build.outcome == 'failure'
         run: |
@@ -76,28 +84,6 @@ jobs:
             | sort -u \
             | head -n 25 >> $GITHUB_STEP_SUMMARY
           echo '```' >> $GITHUB_STEP_SUMMARY
-
-      - name: Upload build log
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: build-log
-          path: build.log
-          if-no-files-found: warn
-          retention-days: 7
-
-      # === ЗАГРУЗКА JAR (берём весь build/ на всякий случай) ===
-      - name: Upload jar
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: FrameFlux-jar
-          path: |
-            build/libs/
-            build/devlibs/
-            build/
-          if-no-files-found: warn
-          retention-days: 30
 
       - name: Fail if build failed
         if: steps.build.outcome == 'failure'
