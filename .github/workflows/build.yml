@@ -29,41 +29,41 @@ jobs:
           echo "$PWD/gradle-9.2.1/bin" >> $GITHUB_PATH
           gradle --version
 
-      # Показываем все доступные задачи
-      - name: Gradle tasks preview
-        run: gradle tasks --no-daemon --all 2>&1 | head -n 100
-
-      # Сборка с полным логом
       - name: Build with Gradle
         id: build
         continue-on-error: true
         run: |
-          gradle build --no-daemon --stacktrace --info 2>&1 | tee build.log
-          echo "=== EXIT CODE: $? ==="
+          gradle build --no-daemon --stacktrace 2>&1 | tee build.log
 
-      # Показываем ВСЁ, что создалось
-      - name: Find all outputs
+      # === ДИАГНОСТИКА: где реально лежит jar ===
+      - name: Find jar everywhere
         if: always()
         run: |
-          echo "=== Корень проекта ==="
-          ls -la
+          echo "=== ВСЁ, ЧТО ПОХОЖЕ НА JAR ==="
+          find . -name "*.jar" \
+            -not -path "./gradle-9.2.1/*" \
+            -not -path "./.gradle/*" \
+            -not -path "./gradle/*" \
+            -not -path "*/.git/*" || echo "НИЧЕГО НЕ НАЙДЕНО"
           echo ""
-          echo "=== build/ ==="
+          echo "=== ВСЯ СТРУКТУРА build/ ==="
+          find build -type f 2>/dev/null | head -50 || echo "build/ ПУСТОЙ"
+          echo ""
+          echo "=== ЕСТЬ ЛИ ПАПКА build/ ==="
           ls -la build/ 2>/dev/null || echo "build/ НЕ СУЩЕСТВУЕТ"
           echo ""
-          echo "=== build/libs/ ==="
+          echo "=== ЕСТЬ ЛИ ПАПКА build/libs/ ==="
           ls -la build/libs/ 2>/dev/null || echo "build/libs/ НЕ СУЩЕСТВУЕТ"
           echo ""
-          echo "=== build/devlibs/ ==="
+          echo "=== ЕСТЬ ЛИ ПАПКА build/devlibs/ ==="
           ls -la build/devlibs/ 2>/dev/null || echo "build/devlibs/ НЕ СУЩЕСТВУЕТ"
           echo ""
-          echo "=== ВСЕ .jar в проекте ==="
-          find . -name "*.jar" -not -path "./gradle-9.2.1/*" -not -path "./.gradle/*" -not -path "./gradle/*"
+          echo "=== ПОСЛЕДНИЕ 40 СТРОК build.log ==="
+          tail -n 40 build.log 2>/dev/null || echo "build.log НЕ СОЗДАН"
           echo ""
-          echo "=== Последние 30 строк build.log ==="
-          tail -n 30 build.log 2>/dev/null || echo "build.log НЕ СОЗДАН"
+          echo "=== ЕСТЬ ЛИ TASK :remapJar В ЛОГЕ ==="
+          grep -n "remapJar" build.log 2>/dev/null || echo "TASK :remapJar НЕ НАЙДЕН В ЛОГЕ"
 
-      # Краткая выжимка ошибок
       - name: Summarize errors
         if: steps.build.outcome == 'failure'
         run: |
@@ -77,7 +77,6 @@ jobs:
             | head -n 25 >> $GITHUB_STEP_SUMMARY
           echo '```' >> $GITHUB_STEP_SUMMARY
 
-      # Всегда загружаем лог
       - name: Upload build log
         if: always()
         uses: actions/upload-artifact@v4
@@ -87,15 +86,16 @@ jobs:
           if-no-files-found: warn
           retention-days: 7
 
-      # Загружаем jar, если он есть (не падаем, если нет)
+      # === ЗАГРУЗКА JAR (берём весь build/ на всякий случай) ===
       - name: Upload jar
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: FrameFlux-jar
           path: |
-            build/libs/*.jar
-            build/devlibs/*.jar
+            build/libs/
+            build/devlibs/
+            build/
           if-no-files-found: warn
           retention-days: 30
 
