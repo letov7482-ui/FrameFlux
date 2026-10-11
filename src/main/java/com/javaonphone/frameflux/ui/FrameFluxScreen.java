@@ -17,13 +17,11 @@ public class FrameFluxScreen extends Screen {
     private boolean loading = false;
     private String errorMessage = null;
 
-    // Кнопки вкладок (создаются один раз в init)
     private ButtonWidget tabOptimize;
     private ButtonWidget tabHelp;
     private ButtonWidget tabAbout;
     private ButtonWidget loadButton;
 
-    // Размеры боковой панели
     private static final int SIDEBAR_WIDTH = 110;
     private static final int TAB_HEIGHT = 24;
     private static final int TAB_START_Y = 40;
@@ -35,7 +33,6 @@ public class FrameFluxScreen extends Screen {
 
     @Override
     protected void init() {
-        // === Боковые вкладки ===
         int tabX = 10;
         int tabY = TAB_START_Y;
 
@@ -58,7 +55,6 @@ public class FrameFluxScreen extends Screen {
         addDrawableChild(tabHelp);
         addDrawableChild(tabAbout);
 
-        // === Кнопка загрузки модов (создаётся один раз) ===
         loadButton = ButtonWidget.builder(Text.literal("Загрузить моды"), b -> {
             loading = true;
             errorMessage = null;
@@ -80,8 +76,6 @@ public class FrameFluxScreen extends Screen {
         }).dimensions(SIDEBAR_WIDTH + 10, 70, 160, 20).build();
 
         addDrawableChild(loadButton);
-
-        // Управляем видимостью в зависимости от вкладки
         updateVisibility();
     }
 
@@ -89,36 +83,29 @@ public class FrameFluxScreen extends Screen {
         if (loadButton != null) {
             loadButton.visible = (currentTab == 0 && mods == null && !loading && errorMessage == null);
         }
-        // Вкладки всегда видимы
-        if (tabOptimize != null) tabOptimize.visible = true;
-        if (tabHelp != null) tabHelp.visible = true;
-        if (tabAbout != null) tabAbout.visible = true;
     }
 
     @Override
     public void render(DrawContext ctx, int mouseX, int mouseY, float delta) {
-        // Фон
-        ctx.fill(0, 0, width, height, 0xCC000000);
+        // ВАЖНО: super.render() СНАЧАЛА — он рисует фон и виджеты
+        super.render(ctx, mouseX, mouseY, delta);
 
         // Заголовок
         ctx.drawCenteredTextWithShadow(textRenderer, title, width / 2, 15, 0xFFFFFF);
 
-        // === Боковая панель (фон) ===
+        // Боковая панель (фон)
         ctx.fill(0, 30, SIDEBAR_WIDTH, height, 0xAA1A1A1A);
 
         // Подсветка активной вкладки
         int activeY = TAB_START_Y + currentTab * (TAB_HEIGHT + 4);
         ctx.fill(5, activeY - 2, SIDEBAR_WIDTH - 5, activeY + TAB_HEIGHT + 2, 0x55FFAA00);
 
-        // === Контент активной вкладки ===
+        // Контент активной вкладки (ПОВЕРХ super.render)
         switch (currentTab) {
             case 0 -> renderOptimizeTab(ctx);
             case 1 -> renderHelpTab(ctx);
             case 2 -> renderAboutTab(ctx);
         }
-
-        // Рисуем виджеты поверх
-        super.render(ctx, mouseX, mouseY, delta);
     }
 
     private void renderOptimizeTab(DrawContext ctx) {
@@ -179,4 +166,4 @@ public class FrameFluxScreen extends Screen {
     public void close() {
         if (client != null) client.setScreen(parent);
     }
-}
+        }
