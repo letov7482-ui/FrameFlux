@@ -4,10 +4,11 @@ import com.javaonphone.frameflux.FrameFluxClient;
 import net.fabricmc.fabric.api.client.rendering.v1.HudRenderCallback;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.gui.DrawContext;
+import net.minecraft.client.render.RenderTickCounter;
 
 public class HudIndicator implements HudRenderCallback {
     @Override
-    public void onHudRender(DrawContext ctx, float tickDelta) {
+    public void onHudRender(DrawContext ctx, RenderTickCounter tickCounter) {
         FrameFluxClient client = FrameFluxClient.getInstance();
         if (client == null || !client.isFrameGenEnabled()) return;
         if (!client.getConfig().hudEnabled) return;
