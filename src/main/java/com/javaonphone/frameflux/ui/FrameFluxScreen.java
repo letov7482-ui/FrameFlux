@@ -11,7 +11,7 @@ import java.util.List;
 
 public class FrameFluxScreen extends Screen {
     private final Screen parent;
-    private int currentTab = 0; // 0 = Оптимизация, 1 = Помощь, 2 = О моде
+    private int currentTab;
 
     private List<ModEntry> mods = null;
     private boolean loading = false;
@@ -27,8 +27,13 @@ public class FrameFluxScreen extends Screen {
     private static final int TAB_START_Y = 40;
 
     public FrameFluxScreen(Screen parent) {
+        this(parent, 0);
+    }
+
+    public FrameFluxScreen(Screen parent, int initialTab) {
         super(Text.literal("FrameFlux"));
         this.parent = parent;
+        this.currentTab = initialTab;
     }
 
     @Override
@@ -60,17 +65,24 @@ public class FrameFluxScreen extends Screen {
             errorMessage = null;
             mods = null;
             updateVisibility();
+            final int tabSnapshot = currentTab;
             new Thread(() -> {
+                List<ModEntry> result = null;
+                String error = null;
                 try {
-                    List<ModEntry> result = ModrinthClient.searchOptimizationMods("1.21.11");
-                    mods = result;
+                    result = ModrinthClient.searchOptimizationMods("1.21.11");
                 } catch (Exception e) {
-                    errorMessage = e.getMessage() != null ? e.getMessage() : "Неизвестная ошибка";
-                } finally {
-                    loading = false;
-                    if (client != null) {
-                        client.execute(() -> updateVisibility());
-                    }
+                    error = e.getMessage() != null ? e.getMessage() : "Неизвестная ошибка";
+                }
+                final List<ModEntry> finalResult = result;
+                final String finalError = error;
+                if (client != null) {
+                    client.execute(() -> {
+                        mods = finalResult;
+                        errorMessage = finalError;
+                        loading = false;
+                        client.setScreen(new FrameFluxScreen(parent, tabSnapshot));
+                    });
                 }
             }).start();
         }).dimensions(SIDEBAR_WIDTH + 10, 70, 160, 20).build();
@@ -81,27 +93,20 @@ public class FrameFluxScreen extends Screen {
 
     private void updateVisibility() {
         if (loadButton != null) {
-            // Кнопка видна только на вкладке "Оптимизация" и пока не идёт загрузка
             loadButton.visible = (currentTab == 0 && !loading);
         }
     }
 
     @Override
     public void render(DrawContext ctx, int mouseX, int mouseY, float delta) {
-        // 1. Сначала super.render — фон и виджеты
         super.render(ctx, mouseX, mouseY, delta);
 
-        // 2. Заголовок
         ctx.drawCenteredTextWithShadow(textRenderer, title, width / 2, 15, 0xFFFFFF);
-
-        // 3. Боковая панель
         ctx.fill(0, 30, SIDEBAR_WIDTH, height, 0xAA1A1A1A);
 
-        // 4. Подсветка активной вкладки
         int activeY = TAB_START_Y + currentTab * (TAB_HEIGHT + 4);
         ctx.fill(5, activeY - 2, SIDEBAR_WIDTH - 5, activeY + TAB_HEIGHT + 2, 0x55FFAA00);
 
-        // 5. Контент вкладки
         switch (currentTab) {
             case 0 -> renderOptimizeTab(ctx);
             case 1 -> renderHelpTab(ctx);
@@ -172,4 +177,4 @@ public class FrameFluxScreen extends Screen {
     public void close() {
         if (client != null) client.setScreen(parent);
     }
-    }
+}
