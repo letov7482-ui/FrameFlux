@@ -37,6 +37,15 @@ jobs:
         run: |
           gradle build --no-daemon --stacktrace 2>&1 | tee build.log
 
+      # === ДИАГНОСТИКА: ГДЕ ЛЕЖИТ JAR ===
+      - name: List build outputs
+        if: steps.build.outcome == 'success'
+        run: |
+          echo "=== build/libs ==="
+          ls -la build/libs/ || echo "NOT FOUND"
+          echo "=== все jar в проекте ==="
+          find . -name "*.jar" -not -path "./gradle/*" -not -path "./.gradle/*" -not -path "./gradle-9.2.1/*"
+
       # === КОРОТКАЯ ВЫЖИМКА ОШИБОК ===
       - name: Summarize errors
         if: steps.build.outcome == 'failure'
@@ -66,9 +75,8 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: FrameFlux-jar
-          path: |
-            build/libs/*.jar
-            !build/libs/*-sources.jar
+          path: build/libs/
+          if-no-files-found: error
           retention-days: 30
 
       # === ПРОВАЛ, ЕСЛИ СБОРКА УПАЛА ===
