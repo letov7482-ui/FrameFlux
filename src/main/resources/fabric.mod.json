@@ -1,0 +1,26 @@
+{
+  "schemaVersion": 1,
+  "id": "frameflux",
+  "version": "${version}",
+  "name": "FrameFlux",
+  "description": "Генерация кадров для Minecraft. Удваивает FPS без замены рендера.",
+  "authors": ["JavaOnPhone team"],
+  "contributors": [],
+  "contact": {
+    "homepage": "https://modrinth.com/mod/frameflux",
+    "issues": "https://github.com/JavaOnPhone/FrameFlux/issues"
+  },
+  "license": "MIT",
+  "icon": "assets/frameflux/icon.png",
+  "environment": "client",
+  "entrypoints": {
+    "client": ["com.javaonphone.frameflux.FrameFluxClient"]
+  },
+  "mixins": ["frameflux.mixins.json"],
+  "depends": {
+    "fabricloader": ">=0.18.1",
+    "fabric-api": ">=0.137.0",
+    "minecraft": "~1.21.11",
+    "java": ">=21"
+  }
+}
