@@ -2,6 +2,7 @@ package com.javaonphone.frameflux.render;
 
 import com.javaonphone.frameflux.FrameFluxClient;
 import org.lwjgl.opengl.GL11;
+import org.lwjgl.opengl.GL14;
 import org.lwjgl.opengl.GL30;
 
 import java.nio.ByteBuffer;
@@ -23,7 +24,7 @@ public class FrameBufferManager {
         GL11.glTexParameteri(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_MIN_FILTER, GL11.GL_LINEAR);
         GL11.glTexParameteri(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_MAG_FILTER, GL11.GL_LINEAR);
 
-        // Пробуем создать depth-текстуру с 32F, при ошибке — с 16
+        // Пробуем 32F depth
         try {
             depthTexture = GL11.glGenTextures();
             GL11.glBindTexture(GL11.GL_TEXTURE_2D, depthTexture);
@@ -32,17 +33,26 @@ public class FrameBufferManager {
             GL11.glTexParameteri(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_MIN_FILTER, GL11.GL_NEAREST);
             GL11.glTexParameteri(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_MAG_FILTER, GL11.GL_NEAREST);
 
-            // Проверка ошибок
             int err = GL11.glGetError();
             if (err != GL11.GL_NO_ERROR) {
                 FrameFluxClient.LOGGER.warn("[FrameFlux] 32F depth не поддерживается, пробуем 16");
                 GL11.glDeleteTextures(depthTexture);
+
+                // Fallback: 16-bit depth (константа в GL14)
                 depthTexture = GL11.glGenTextures();
                 GL11.glBindTexture(GL11.GL_TEXTURE_2D, depthTexture);
-                GL11.glTexImage2D(GL11.GL_TEXTURE_2D, 0, GL11.GL_DEPTH_COMPONENT16,
+                GL11.glTexImage2D(GL11.GL_TEXTURE_2D, 0, GL14.GL_DEPTH_COMPONENT16,
                         w, h, 0, GL11.GL_DEPTH_COMPONENT, GL11.GL_UNSIGNED_SHORT, (ByteBuffer) null);
                 GL11.glTexParameteri(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_MIN_FILTER, GL11.GL_NEAREST);
                 GL11.glTexParameteri(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_MAG_FILTER, GL11.GL_NEAREST);
+
+                int err2 = GL11.glGetError();
+                if (err2 != GL11.GL_NO_ERROR) {
+                    FrameFluxClient.LOGGER.warn("[FrameFlux] 16-bit depth тоже не работает");
+                    depthSupported = false;
+                    GL11.glDeleteTextures(depthTexture);
+                    depthTexture = 0;
+                }
             }
         } catch (Exception e) {
             FrameFluxClient.LOGGER.error("[FrameFlux] Depth-текстура не создалась", e);
