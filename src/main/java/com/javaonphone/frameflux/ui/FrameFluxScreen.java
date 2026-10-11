@@ -59,7 +59,7 @@ public class FrameFluxScreen extends Screen {
             loading = true;
             errorMessage = null;
             mods = null;
-            loadButton.visible = false;
+            updateVisibility();
             new Thread(() -> {
                 try {
                     List<ModEntry> result = ModrinthClient.searchOptimizationMods("1.21.11");
@@ -69,7 +69,7 @@ public class FrameFluxScreen extends Screen {
                 } finally {
                     loading = false;
                     if (client != null) {
-                        client.execute(() -> loadButton.visible = true);
+                        client.execute(() -> updateVisibility());
                     }
                 }
             }).start();
@@ -81,26 +81,27 @@ public class FrameFluxScreen extends Screen {
 
     private void updateVisibility() {
         if (loadButton != null) {
-            loadButton.visible = (currentTab == 0 && mods == null && !loading && errorMessage == null);
+            // Кнопка видна только на вкладке "Оптимизация" и пока не идёт загрузка
+            loadButton.visible = (currentTab == 0 && !loading);
         }
     }
 
     @Override
     public void render(DrawContext ctx, int mouseX, int mouseY, float delta) {
-        // ВАЖНО: super.render() СНАЧАЛА — он рисует фон и виджеты
+        // 1. Сначала super.render — фон и виджеты
         super.render(ctx, mouseX, mouseY, delta);
 
-        // Заголовок
+        // 2. Заголовок
         ctx.drawCenteredTextWithShadow(textRenderer, title, width / 2, 15, 0xFFFFFF);
 
-        // Боковая панель (фон)
+        // 3. Боковая панель
         ctx.fill(0, 30, SIDEBAR_WIDTH, height, 0xAA1A1A1A);
 
-        // Подсветка активной вкладки
+        // 4. Подсветка активной вкладки
         int activeY = TAB_START_Y + currentTab * (TAB_HEIGHT + 4);
         ctx.fill(5, activeY - 2, SIDEBAR_WIDTH - 5, activeY + TAB_HEIGHT + 2, 0x55FFAA00);
 
-        // Контент активной вкладки (ПОВЕРХ super.render)
+        // 5. Контент вкладки
         switch (currentTab) {
             case 0 -> renderOptimizeTab(ctx);
             case 1 -> renderHelpTab(ctx);
@@ -114,19 +115,24 @@ public class FrameFluxScreen extends Screen {
 
         if (loading) {
             ctx.drawTextWithShadow(textRenderer, "Ищем моды...", contentX, y, 0xFFFFAA);
-        } else if (errorMessage != null) {
+            return;
+        }
+
+        if (errorMessage != null) {
             ctx.drawTextWithShadow(textRenderer, "Ошибка: " + errorMessage, contentX, y, 0xFF5555);
-            ctx.drawTextWithShadow(textRenderer, "Проверь интернет", contentX, y + 14, 0xAAAAAA);
-        } else if (mods != null) {
-            if (mods.isEmpty()) {
-                ctx.drawTextWithShadow(textRenderer, "Моды не найдены", contentX, y, 0xAAAAAA);
-            } else {
-                for (ModEntry mod : mods) {
-                    if (y > height - 40) break;
-                    ctx.drawTextWithShadow(textRenderer, mod.title(), contentX, y, 0xFFFFFF);
-                    y += 14;
-                }
+            return;
+        }
+
+        if (mods != null && !mods.isEmpty()) {
+            ctx.drawTextWithShadow(textRenderer, "Найдено: " + mods.size() + " модов", contentX, y, 0x55FF55);
+            y += 18;
+            for (ModEntry mod : mods) {
+                if (y > height - 40) break;
+                ctx.drawTextWithShadow(textRenderer, "• " + mod.title(), contentX, y, 0xFFFFFF);
+                y += 14;
             }
+        } else if (mods != null) {
+            ctx.drawTextWithShadow(textRenderer, "Моды не найдены", contentX, y, 0xAAAAAA);
         }
     }
 
@@ -166,4 +172,4 @@ public class FrameFluxScreen extends Screen {
     public void close() {
         if (client != null) client.setScreen(parent);
     }
-        }
+    }
