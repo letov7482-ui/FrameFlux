@@ -22,7 +22,6 @@ jobs:
           distribution: temurin
           java-version: 21
 
-      # === АВТО-СКАЧКА GRADLE 9.2.1 ===
       - name: Download Gradle 9.2.1
         run: |
           wget -q https://services.gradle.org/distributions/gradle-9.2.1-bin.zip
@@ -30,23 +29,41 @@ jobs:
           echo "$PWD/gradle-9.2.1/bin" >> $GITHUB_PATH
           gradle --version
 
-      # === СБОРКА ===
+      # Показываем все доступные задачи
+      - name: Gradle tasks preview
+        run: gradle tasks --no-daemon --all 2>&1 | head -n 100
+
+      # Сборка с полным логом
       - name: Build with Gradle
         id: build
         continue-on-error: true
         run: |
-          gradle build --no-daemon --stacktrace 2>&1 | tee build.log
+          gradle build --no-daemon --stacktrace --info 2>&1 | tee build.log
+          echo "=== EXIT CODE: $? ==="
 
-      # === ДИАГНОСТИКА: ГДЕ ЛЕЖИТ JAR ===
-      - name: List build outputs
-        if: steps.build.outcome == 'success'
+      # Показываем ВСЁ, что создалось
+      - name: Find all outputs
+        if: always()
         run: |
-          echo "=== build/libs ==="
-          ls -la build/libs/ || echo "NOT FOUND"
-          echo "=== все jar в проекте ==="
-          find . -name "*.jar" -not -path "./gradle/*" -not -path "./.gradle/*" -not -path "./gradle-9.2.1/*"
+          echo "=== Корень проекта ==="
+          ls -la
+          echo ""
+          echo "=== build/ ==="
+          ls -la build/ 2>/dev/null || echo "build/ НЕ СУЩЕСТВУЕТ"
+          echo ""
+          echo "=== build/libs/ ==="
+          ls -la build/libs/ 2>/dev/null || echo "build/libs/ НЕ СУЩЕСТВУЕТ"
+          echo ""
+          echo "=== build/devlibs/ ==="
+          ls -la build/devlibs/ 2>/dev/null || echo "build/devlibs/ НЕ СУЩЕСТВУЕТ"
+          echo ""
+          echo "=== ВСЕ .jar в проекте ==="
+          find . -name "*.jar" -not -path "./gradle-9.2.1/*" -not -path "./.gradle/*" -not -path "./gradle/*"
+          echo ""
+          echo "=== Последние 30 строк build.log ==="
+          tail -n 30 build.log 2>/dev/null || echo "build.log НЕ СОЗДАН"
 
-      # === КОРОТКАЯ ВЫЖИМКА ОШИБОК ===
+      # Краткая выжимка ошибок
       - name: Summarize errors
         if: steps.build.outcome == 'failure'
         run: |
@@ -57,29 +74,31 @@ jobs:
           grep -E "error:|error;|Caused by:|FAILURE:|What went wrong|Execution failed|Could not" build.log \
             | grep -viE "warning:|deprecat|^\s*at " \
             | sort -u \
-            | head -n 20 >> $GITHUB_STEP_SUMMARY
+            | head -n 25 >> $GITHUB_STEP_SUMMARY
           echo '```' >> $GITHUB_STEP_SUMMARY
 
-      # === ЗАГРУЗКА ЛОГА ПРИ ПАДЕНИИ ===
+      # Всегда загружаем лог
       - name: Upload build log
-        if: steps.build.outcome == 'failure'
+        if: always()
         uses: actions/upload-artifact@v4
         with:
           name: build-log
           path: build.log
+          if-no-files-found: warn
           retention-days: 7
 
-      # === ЗАГРУЗКА JAR ПРИ УСПЕХЕ ===
+      # Загружаем jar, если он есть (не падаем, если нет)
       - name: Upload jar
-        if: steps.build.outcome == 'success'
+        if: always()
         uses: actions/upload-artifact@v4
         with:
           name: FrameFlux-jar
-          path: build/libs/
-          if-no-files-found: error
+          path: |
+            build/libs/*.jar
+            build/devlibs/*.jar
+          if-no-files-found: warn
           retention-days: 30
 
-      # === ПРОВАЛ, ЕСЛИ СБОРКА УПАЛА ===
       - name: Fail if build failed
         if: steps.build.outcome == 'failure'
         run: exit 1
