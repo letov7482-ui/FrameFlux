@@ -19,8 +19,6 @@ public class FrameFluxScreen extends Screen {
     private int currentTab;
 
     private ButtonWidget loadButton;
-
-    // Виджеты для контента (создаются в init для активной вкладки)
     private final List<ButtonWidget> contentWidgets = new ArrayList<>();
 
     private static final int SIDEBAR_WIDTH = 110;
@@ -59,7 +57,11 @@ public class FrameFluxScreen extends Screen {
             rebuildContent();
         }).dimensions(tabX, tabY + (TAB_HEIGHT + 4) * 2, SIDEBAR_WIDTH - 20, TAB_HEIGHT).build());
 
-        // Кнопка загрузки
+        addDrawableChild(ButtonWidget.builder(Text.literal("Планы"), b -> {
+            currentTab = 3;
+            rebuildContent();
+        }).dimensions(tabX, tabY + (TAB_HEIGHT + 4) * 3, SIDEBAR_WIDTH - 20, TAB_HEIGHT).build());
+
         loadButton = ButtonWidget.builder(Text.literal("Загрузить моды"), b -> {
             cachedLoading = true;
             cachedError = null;
@@ -83,18 +85,15 @@ public class FrameFluxScreen extends Screen {
         }).dimensions(SIDEBAR_WIDTH + 10, 70, 160, 20).build();
 
         addDrawableChild(loadButton);
-
         rebuildContent();
     }
 
     private void rebuildContent() {
-        // Удаляем старые контентные виджеты
         for (ButtonWidget w : contentWidgets) {
             remove(w);
         }
         contentWidgets.clear();
 
-        // Кнопка загрузки — только на вкладке "Оптимизация"
         if (loadButton != null) {
             loadButton.visible = (currentTab == 0 && !cachedLoading && cachedMods == null && cachedError == null);
         }
@@ -103,47 +102,121 @@ public class FrameFluxScreen extends Screen {
         int y = 100;
 
         switch (currentTab) {
-            case 0 -> {
-                if (cachedLoading) {
-                    addContentLabel("Ищем моды...", contentX, y, 0xFFFFAA);
-                } else if (cachedError != null) {
-                    addContentLabel("Ошибка: " + cachedError, contentX, y, 0xFF5555);
-                } else if (cachedMods != null && !cachedMods.isEmpty()) {
-                    addContentLabel("Найдено: " + cachedMods.size() + " модов", contentX, y, 0x55FF55);
-                    y += 20;
-                    int limit = Math.min(cachedMods.size(), 15);
-                    for (int i = 0; i < limit; i++) {
-                        ModEntry mod = cachedMods.get(i);
-                        ButtonWidget entry = ButtonWidget.builder(
-                                Text.literal(mod.title()),
-                                b -> {} // заглушка, потом добавим скачивание
-                        ).dimensions(contentX, y, 200, 16).build();
-                        addDrawableChild(entry);
-                        contentWidgets.add(entry);
-                        y += 18;
-                    }
-                } else if (cachedMods != null) {
-                    addContentLabel("Моды не найдены", contentX, y, 0xAAAAAA);
-                }
-            }
-            case 1 -> {
-                addContentLabel("F - открыть меню", contentX, y, 0xCCCCCC);
-                addContentLabel("G - вкл/выкл FrameGen", contentX, y + 16, 0xCCCCCC);
-                addContentLabel("FrameGen удваивает FPS", contentX, y + 40, 0xCCCCCC);
-            }
-            case 2 -> {
-                addContentLabel("FrameFlux v1.0.0", contentX, y, 0xCCCCCC);
-                addContentLabel("Автор: JavaOnPhone team", contentX, y + 16, 0xCCCCCC);
-                addContentLabel("Minecraft 1.21.11 / Fabric", contentX, y + 40, 0xCCCCCC);
-            }
+            case 0 -> buildOptimizeTab(contentX, y);
+            case 1 -> buildHelpTab(contentX, y);
+            case 2 -> buildAboutTab(contentX, y);
+            case 3 -> buildPlansTab(contentX, y);
         }
     }
 
-    // Вместо drawText — создаём "кнопку-метку" (некликабельную)
-    private void addContentLabel(String text, int x, int y, int color) {
+    // === Вкладка "Оптимизация" ===
+    private void buildOptimizeTab(int contentX, int y) {
+        if (cachedLoading) {
+            addLabel("Ищем моды...", contentX, y);
+            return;
+        }
+        if (cachedError != null) {
+            addLabel("Ошибка: " + cachedError, contentX, y);
+            return;
+        }
+        if (cachedMods != null && !cachedMods.isEmpty()) {
+            addLabel("Найдено: " + cachedMods.size() + " модов", contentX, y);
+            y += 20;
+            int limit = Math.min(cachedMods.size(), 12);
+            for (int i = 0; i < limit; i++) {
+                ModEntry mod = cachedMods.get(i);
+                ButtonWidget entry = ButtonWidget.builder(
+                        Text.literal(mod.title()),
+                        b -> {}
+                ).dimensions(contentX, y, 220, 16).build();
+                addDrawableChild(entry);
+                contentWidgets.add(entry);
+                y += 18;
+            }
+        } else if (cachedMods != null) {
+            addLabel("Моды не найдены", contentX, y);
+        }
+    }
+
+    // === Вкладка "Помощь" ===
+    private void buildHelpTab(int contentX, int y) {
+        String[] lines = {
+                "F - открыть меню",
+                "G - вкл/выкл FrameGen",
+                "",
+                "Как работает FrameGen:",
+                "1. Мод захватывает кадр",
+                "2. Пропускает следующий",
+                "3. Вставляет свой кадр",
+                "",
+                "FPS растёт, GPU отдыхает,",
+                "телефон меньше греется.",
+                "",
+                "Если мигает - выключи G.",
+                "На Android depth-текстуры",
+                "могут не работать."
+        };
+        for (String line : lines) {
+            addLabel(line, contentX, y);
+            y += 16;
+        }
+    }
+
+    // === Вкладка "О моде" ===
+    private void buildAboutTab(int contentX, int y) {
+        String[] lines = {
+                "FrameFlux v1.0.0",
+                "Автор: JavaOnPhone team",
+                "",
+                "Minecraft: 1.21.11",
+                "Загрузчик: Fabric",
+                "",
+                "Совместимость:",
+                "Sodium, Iris, Lithium",
+                "",
+                "Технологии:",
+                "- Репроекция кадров",
+                "- Depth-текстура",
+                "- JOML матрицы",
+                "- OkHttp + Gson",
+                "",
+                "Лицензия: MIT"
+        };
+        for (String line : lines) {
+            addLabel(line, contentX, y);
+            y += 16;
+        }
+    }
+
+    // === Вкладка "Планы" ===
+    private void buildPlansTab(int contentX, int y) {
+        String[] lines = {
+                "v1.1 - Улучшения:",
+                "- GLSL шейдер репроекции",
+                "- Motion vectors",
+                "- HUD-кэш (+30 FPS)",
+                "- Пресеты настроек",
+                "",
+                "v1.2 - Оптимизация:",
+                "- Sodium Optimizer",
+                "- Автодетект железа",
+                "- Тост-уведомления",
+                "",
+                "v2.0 - Легенда:",
+                "- Экстраполяция (0 lag)",
+                "- Умный множитель 2x-4x",
+                "- Порт на 1.20.x и NeoForge"
+        };
+        for (String line : lines) {
+            addLabel(line, contentX, y);
+            y += 16;
+        }
+    }
+
+    private void addLabel(String text, int x, int y) {
         ButtonWidget label = ButtonWidget.builder(Text.literal(text), b -> {})
-                .dimensions(x, y, 200, 14).build();
-        label.active = false; // визуально отключена, но текст видно
+                .dimensions(x, y, 240, 14).build();
+        label.active = false;
         addDrawableChild(label);
         contentWidgets.add(label);
     }
@@ -163,4 +236,4 @@ public class FrameFluxScreen extends Screen {
     public void close() {
         if (client != null) client.setScreen(parent);
     }
-}
+    }
