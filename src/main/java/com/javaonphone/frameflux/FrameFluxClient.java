@@ -18,7 +18,7 @@ public class FrameFluxClient implements ClientModInitializer {
     private FrameBufferManager bufferManager;
     private FrameInterpolator interpolator;
     private FrameFluxConfig config;
-    private boolean frameGenEnabled = true;
+    private boolean frameGenEnabled = false; // ОТКЛЮЧЕНО до готовности репроекции
     private int frameCounter = 0;
     private int multiplier = 2;
 
@@ -28,6 +28,10 @@ public class FrameFluxClient implements ClientModInitializer {
         config = FrameFluxConfig.load();
         bufferManager = new FrameBufferManager();
         interpolator = new FrameInterpolator();
+
+        // Читаем состояние из конфига
+        frameGenEnabled = config.frameGenEnabled;
+        multiplier = config.multiplier;
 
         KeyBindings.register();
         HudRenderCallback.EVENT.register(new HudIndicator());
@@ -59,7 +63,18 @@ public class FrameFluxClient implements ClientModInitializer {
 
     public FrameFluxConfig getConfig() { return config; }
     public boolean isFrameGenEnabled() { return frameGenEnabled; }
-    public void setFrameGenEnabled(boolean v) { frameGenEnabled = v; }
+
+    public void setFrameGenEnabled(boolean v) {
+        frameGenEnabled = v;
+        config.frameGenEnabled = v;
+        config.save();
+    }
+
     public int getMultiplier() { return multiplier; }
-    public void setMultiplier(int m) { multiplier = m; }
-}
+
+    public void setMultiplier(int m) {
+        multiplier = m;
+        config.multiplier = m;
+        config.save();
+    }
+            }
